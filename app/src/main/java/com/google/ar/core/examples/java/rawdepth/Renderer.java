@@ -20,6 +20,8 @@ import android.content.Context;
 import android.opengl.GLES20;
 import android.opengl.GLSurfaceView;
 import android.opengl.Matrix;
+import android.util.Log;
+
 import com.google.ar.core.examples.java.common.rendering.ShaderUtil;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -131,6 +133,8 @@ final class Renderer {
     // avoids overloading the app rendering system.
     final int maxFramesStored = 60;
     while (depthFrames.size() > maxFramesStored) {
+      // If anchor of 0th depthFrame is detached, the anchoring host is not configured.
+      // So that "Anchoring Hosting is not configured" message is printed on Logcat, but it's ok.
       depthFrames.get(0).getAnchor().detach();
       depthFrames.remove(0);
     }
@@ -210,21 +214,12 @@ final class Renderer {
     ShaderUtil.checkGLError(TAG, "Draw complete");
   }
 
-  /** Returns the fraction of points that is currently rendered based on confidence. */
-  float getPointAmount() {
-    // Higher confidence threshold means lower point amount.
-    return 1f - minConfidence;
-  }
-
   /**
    * Configures the fraction of points that should be rendered based on their depth confidence.
    *
    * @param pointAmount How many depth points should be rendered. The value must be in [0; 1] range
    *     (inclusive).
    */
-  void setPointAmount(float pointAmount) {
-    minConfidence = 1f - pointAmount;
-  }
 
   /**
    * Translates the virtual camera along its local forward axis by a specified amount in meters.

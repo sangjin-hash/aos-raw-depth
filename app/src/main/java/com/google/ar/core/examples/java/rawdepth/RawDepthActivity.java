@@ -21,7 +21,8 @@ import android.opengl.GLES20;
 import android.opengl.GLSurfaceView;
 import android.os.Bundle;
 import android.util.Log;
-import android.widget.SeekBar;
+import android.view.View;
+import android.widget.ImageView;
 import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
 import com.google.ar.core.ArCoreApk;
@@ -55,6 +56,7 @@ public class RawDepthActivity extends AppCompatActivity implements GLSurfaceView
 
   // Rendering. The Renderers are created here, and initialized when the GL surface is created.
   private GLSurfaceView surfaceView;
+  private ImageView btn_camera;
 
   private boolean installRequested;
   private boolean depthReceived;
@@ -72,11 +74,20 @@ public class RawDepthActivity extends AppCompatActivity implements GLSurfaceView
   /** The current raw depth image timestamp. */
   private long depthTimestamp = -1;
 
+  private enum CameraState {
+    IDLE,
+    RUNNING
+  }
+
+  private CameraState _state = CameraState.values()[0];
+
+
   @Override
   protected void onCreate(Bundle savedInstanceState) {
     super.onCreate(savedInstanceState);
     setContentView(R.layout.activity_main);
     surfaceView = findViewById(R.id.surfaceview);
+    btn_camera =  findViewById(R.id.btn_camera);
     displayRotationHelper = new DisplayRotationHelper(/*context=*/ this);
 
     // Set up rendering.
@@ -87,29 +98,33 @@ public class RawDepthActivity extends AppCompatActivity implements GLSurfaceView
     surfaceView.setRenderMode(GLSurfaceView.RENDERMODE_CONTINUOUSLY);
     surfaceView.setWillNotDraw(false);
 
-    // Set up confidence threshold slider.
-    SeekBar seekBar = findViewById(R.id.slider);
-    seekBar.setProgress((int) (renderer.getPointAmount() * seekBar.getMax()));
-    seekBar.setOnSeekBarChangeListener(seekBarChangeListener);
-
     installRequested = false;
     depthReceived = false;
   }
 
-  private SeekBar.OnSeekBarChangeListener seekBarChangeListener =
-      new SeekBar.OnSeekBarChangeListener() {
-        @Override
-        public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
-          float progressNormalized = (float) progress / seekBar.getMax();
-          renderer.setPointAmount(progressNormalized);
+  public void onClick(View view) {
+    switch(view.getId()){
+      case R.id.btn_camera:
+        switch(_state){
+          case IDLE :
+            btn_camera.setImageResource(R.drawable.camera_button_recording);
+            _state = CameraState.RUNNING;
+            break;
+          case RUNNING :
+            btn_camera.setImageResource(R.drawable.camera_button);
+
+            _state = CameraState.IDLE;
+            break;
         }
-
-        @Override
-        public void onStartTrackingTouch(SeekBar seekBar) {}
-
-        @Override
-        public void onStopTrackingTouch(SeekBar seekBar) {}
-      };
+        break;
+      case R.id.btn_blind:
+        break;
+      case R.id.btn_switch:
+        break;
+      default:
+        break;
+    }
+  }
 
   @Override
   protected void onDestroy() {
@@ -199,7 +214,7 @@ public class RawDepthActivity extends AppCompatActivity implements GLSurfaceView
     surfaceView.onResume();
     displayRotationHelper.onResume();
 
-    messageSnackbarHelper.showMessage(this, "No depth yet. Try moving the device.");
+    //messageSnackbarHelper.showMessage(this, "No depth yet. Try moving the device.");
   }
 
   @Override
