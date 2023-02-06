@@ -18,8 +18,8 @@ package com.google.ar.core.examples.java.rawdepth;
 
 import android.media.Image;
 import com.google.ar.core.Anchor;
-import com.google.ar.core.CameraIntrinsics;
 import com.google.ar.core.Frame;
+import static com.google.ar.core.examples.java.rawdepth.Renderer.frameData;
 import com.google.ar.core.Session;
 import com.google.ar.core.exceptions.NotYetAvailableException;
 import java.nio.FloatBuffer;
@@ -30,6 +30,7 @@ import java.nio.FloatBuffer;
  * instance. The color of the points are matched with the latest color image from the same frame.
  */
 final class DepthData {
+  private final Renderer renderer = new Renderer();
   /** Buffer of point coordinates and confidence values. */
   private FloatBuffer points;
 
@@ -52,33 +53,19 @@ final class DepthData {
 
   public static DepthData create(Session session, Frame frame) {
     try (Image cameraImage = frame.acquireCameraImage();
-        Image depthImage = frame.acquireRawDepthImage16Bits();
-        Image confidenceImage = frame.acquireRawDepthConfidenceImage()) {
+         Image depthImage = frame.acquireRawDepthImage16Bits();
+         Image confidenceImage = frame.acquireRawDepthConfidenceImage()) {
       // Depth images vary in size depending on device, and can be large on devices with a depth
       // camera. To ensure smooth framerate, we cap the number of points each frame.
       final int maxNumberOfPointsToRender = 15000;
-
-      // To transform 2D depth pixels into 3D points we retrieve the intrinsic camera parameters
-      // corresponding to the depth image. See more information about the depth values at
-      // https://developers.google.com/ar/develop/java/depth/overview#understand-depth-values.
-      CameraIntrinsics intrinsics = frame.getCamera().getTextureIntrinsics();
-      FloatBuffer points =
-          PointCloudHelper.convertRawDepthImagesTo3dPointBuffer(
-              depthImage, confidenceImage, intrinsics, maxNumberOfPointsToRender);
-
-      // To give each point a color from the RGB camera we need to look up the RGB pixel
-      // corresponding to each depth pixel. RGB and depth images usually have different aspect
-      // ratios. Here we calculate the CPU image region that corresponds to the area covered by the
-      // depth image.
-      FloatBuffer imageRegionCoordinates =
-          PointCloudHelper.getImageCoordinatesForFullTexture(frame);
-
-      FloatBuffer colors =
-          PointCloudHelper.convertImageToColorBuffer(
-              cameraImage, depthImage, imageRegionCoordinates, maxNumberOfPointsToRender);
+      PointCloudHelper.convertImageToDepthAndColors(cameraImage, depthImage, confidenceImage,
+                                                    frame, maxNumberOfPointsToRender);
 
       Anchor cameraPoseAnchor = session.createAnchor(frame.getCamera().getPose());
-      return new DepthData(points, colors, depthImage.getTimestamp(), cameraPoseAnchor);
+      return new DepthData(frameData.get(frameData.size()-1).points,
+              frameData.get(frameData.size()-1).colors,
+              depthImage.getTimestamp(),
+              cameraPoseAnchor);
     } catch (NotYetAvailableException e) {
       // This normally means that depth data is not available yet. This is normal so we will not
       // spam the logcat with this.

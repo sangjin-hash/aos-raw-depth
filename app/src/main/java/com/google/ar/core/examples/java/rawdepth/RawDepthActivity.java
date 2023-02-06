@@ -36,6 +36,7 @@ import com.google.ar.core.examples.java.common.helpers.DisplayRotationHelper;
 import com.google.ar.core.examples.java.common.helpers.FullScreenHelper;
 import com.google.ar.core.examples.java.common.helpers.SnackbarHelper;
 import com.google.ar.core.examples.java.common.helpers.TrackingStateHelper;
+import com.google.ar.core.examples.java.common.io.PlyWriter;
 import com.google.ar.core.exceptions.CameraNotAvailableException;
 import com.google.ar.core.exceptions.NotYetAvailableException;
 import com.google.ar.core.exceptions.UnavailableApkTooOldException;
@@ -112,8 +113,8 @@ public class RawDepthActivity extends AppCompatActivity implements GLSurfaceView
             break;
           case RUNNING :
             btn_camera.setImageResource(R.drawable.camera_button);
-
             _state = CameraState.IDLE;
+            saveAsPly();
             break;
         }
         break;
@@ -124,6 +125,11 @@ public class RawDepthActivity extends AppCompatActivity implements GLSurfaceView
       default:
         break;
     }
+  }
+
+  private void saveAsPly(){
+    PlyWriter plyWriter = new PlyWriter(this, Renderer.particleData);
+    plyWriter.execute();
   }
 
   @Override
@@ -277,68 +283,70 @@ public class RawDepthActivity extends AppCompatActivity implements GLSurfaceView
       return;
     }
 
-    // Synchronize prevents session.update() call while paused, see note in onPause().
-    synchronized (frameInUseLock) {
-      // Notify ARCore that the view size changed so that the perspective matrix can be adjusted.
-      displayRotationHelper.updateSessionIfNeeded(session);
+    if(_state == CameraState.RUNNING){
+      // Synchronize prevents session.update() call while paused, see note in onPause().
+      synchronized (frameInUseLock) {
+        // Notify ARCore that the view size changed so that the perspective matrix can be adjusted.
+        displayRotationHelper.updateSessionIfNeeded(session);
 
-      try {
-        session.setCameraTextureNames(new int[] {0});
+        try {
+          session.setCameraTextureNames(new int[] {0});
 
-        Frame frame = session.update();
-        Camera camera = frame.getCamera();
+          Frame frame = session.update();
+          Camera camera = frame.getCamera();
 
-        // Keep the screen unlocked while tracking, but allow it to lock when tracking stops.
-        trackingStateHelper.updateKeepScreenOnFlag(camera.getTrackingState());
+          // Keep the screen unlocked while tracking, but allow it to lock when tracking stops.
+          trackingStateHelper.updateKeepScreenOnFlag(camera.getTrackingState());
 
-        if (camera.getTrackingState() != TrackingState.TRACKING) {
-          // If motion tracking is not available but previous depth is available, notify the user
-          // that the app will resume with tracking.
-          if (depthReceived) {
-            messageSnackbarHelper.showMessage(
-                this, TrackingStateHelper.getTrackingFailureReasonString(camera));
+          if (camera.getTrackingState() != TrackingState.TRACKING) {
+            // If motion tracking is not available but previous depth is available, notify the user
+            // that the app will resume with tracking.
+            if (depthReceived) {
+              messageSnackbarHelper.showMessage(
+                      this, TrackingStateHelper.getTrackingFailureReasonString(camera));
+            }
+
+            // If not tracking, do not render the point cloud.
+            return;
           }
 
-          // If not tracking, do not render the point cloud.
-          return;
-        }
-
-        // Check if the frame contains new depth data or a 3D reprojection of the previous data. See
-        // documentation of acquireRawDepthImage16Bits for more details.
-        boolean containsNewDepthData;
-        try (Image depthImage = frame.acquireRawDepthImage16Bits()) {
-          containsNewDepthData = depthTimestamp == depthImage.getTimestamp();
-          depthTimestamp = depthImage.getTimestamp();
-        } catch (NotYetAvailableException e) {
-          // This is normal at the beginning of session, where depth hasn't been estimated yet.
-          containsNewDepthData = false;
-        }
-
-        if (containsNewDepthData) {
-          // Get Raw Depth data of the current frame.
-          final DepthData depth = DepthData.create(session, frame);
-
-          // Skip rendering the current frame if an exception arises during depth data processing.
-          // For example, before depth estimation finishes initializing.
-          if (depth != null) {
-            depthReceived = true;
-            renderer.update(depth);
+          // Check if the frame contains new depth data or a 3D reprojection of the previous data. See
+          // documentation of acquireRawDepthImage16Bits for more details.
+          boolean containsNewDepthData;
+          try (Image depthImage = frame.acquireRawDepthImage16Bits()) {
+            containsNewDepthData = depthTimestamp == depthImage.getTimestamp();
+            depthTimestamp = depthImage.getTimestamp();
+          } catch (NotYetAvailableException e) {
+            // This is normal at the beginning of session, where depth hasn't been estimated yet.
+            containsNewDepthData = false;
           }
+
+          if (containsNewDepthData) {
+            // Get Raw Depth data of the current frame.
+            final DepthData depth = DepthData.create(session, frame);
+
+            // Skip rendering the current frame if an exception arises during depth data processing.
+            // For example, before depth estimation finishes initializing.
+            if (depth != null) {
+              depthReceived = true;
+              renderer.update(depth);
+            }
+          }
+
+          float[] projectionMatrix = new float[16];
+          camera.getProjectionMatrix(projectionMatrix, 0, 0.1f, 100.0f);
+          float[] viewMatrix = new float[16];
+          camera.getViewMatrix(viewMatrix, 0);
+
+          // Visualize depth points.
+          renderer.draw(viewMatrix, projectionMatrix);
+
+          // Hide all user notifications when the frame has been rendered successfully.
+          messageSnackbarHelper.hide(this);
+        } catch (Throwable t) {
+          // Avoid crashing the application due to unhandled exceptions.
+          Log.e(TAG, "Exception on the OpenGL thread", t);
         }
-
-        float[] projectionMatrix = new float[16];
-        camera.getProjectionMatrix(projectionMatrix, 0, 0.1f, 100.0f);
-        float[] viewMatrix = new float[16];
-        camera.getViewMatrix(viewMatrix, 0);
-
-        // Visualize depth points.
-        renderer.draw(viewMatrix, projectionMatrix);
-
-        // Hide all user notifications when the frame has been rendered successfully.
-        messageSnackbarHelper.hide(this);
-      } catch (Throwable t) {
-        // Avoid crashing the application due to unhandled exceptions.
-        Log.e(TAG, "Exception on the OpenGL thread", t);
       }
     }
   }

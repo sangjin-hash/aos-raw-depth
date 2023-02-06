@@ -22,8 +22,10 @@ import android.opengl.GLSurfaceView;
 import android.opengl.Matrix;
 import android.util.Log;
 
+import com.google.ar.core.examples.java.common.io.PlyWriter;
 import com.google.ar.core.examples.java.common.rendering.ShaderUtil;
 import java.io.IOException;
+import java.nio.FloatBuffer;
 import java.util.ArrayList;
 
 /** Renders the data from Raw Depth API as 3D points. */
@@ -47,6 +49,8 @@ final class Renderer {
    * frame, taken at different times and poses.
    */
   private ArrayList<DepthData> depthFrames = new ArrayList<DepthData>();
+  public static ArrayList<FrameData> frameData = new ArrayList<>();
+  public static ArrayList<Particle> particleData = new ArrayList<>();
 
   private int positionAttribute;
   private int positionBuffer;
@@ -68,7 +72,7 @@ final class Renderer {
    * value is selected to remove only the most unreliable depth values. Low confidence points are
    * discarded in the vertex shader when they fall below this threshold value.
    */
-  private float minConfidence = 0.1f;
+  private final float minConfidence = 0.9f;
 
   public Renderer() {}
 
@@ -126,18 +130,6 @@ final class Renderer {
    */
   public void update(DepthData depth) {
     depthFrames.add(depth);
-
-    // We store and visualize multiple previous frames to create a denser map of the environment.
-    // Cap the total number of depth frames and anchors to avoid memory exhaustion (each depth frame
-    // consumes memory). ARCore consumes CPU cycles for each anchor that it tracks, and this cap
-    // avoids overloading the app rendering system.
-    final int maxFramesStored = 60;
-    while (depthFrames.size() > maxFramesStored) {
-      // If anchor of 0th depthFrame is detached, the anchoring host is not configured.
-      // So that "Anchoring Hosting is not configured" message is printed on Logcat, but it's ok.
-      depthFrames.get(0).getAnchor().detach();
-      depthFrames.remove(0);
-    }
   }
 
   /**
@@ -164,7 +156,6 @@ final class Renderer {
 
     for (DepthData depthFrame : depthFrames) {
       numPoints = depthFrame.getPoints().remaining() / POSITION_FLOATS_PER_POINT;
-
       // Resize the position buffer if needed.
       while (numPoints * POSITION_BYTES_PER_POINT > positionBufferSize) {
         positionBufferSize *= 2;

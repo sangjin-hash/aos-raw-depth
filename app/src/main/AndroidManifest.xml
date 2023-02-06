@@ -19,6 +19,8 @@
     package="com.google.ar.core.examples.java.rawdepth">
 
   <uses-permission android:name="android.permission.CAMERA"/>
+  <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>
+  <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>
   <!-- Limits app visibility in the Google Play Store to devices that:
        - Support ARCore (`android.hardware.camera.ar`)
        - Support the Raw Depth API (`com.google.ar.core.depth`)
