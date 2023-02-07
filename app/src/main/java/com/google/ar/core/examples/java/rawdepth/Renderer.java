@@ -72,7 +72,7 @@ final class Renderer {
    * value is selected to remove only the most unreliable depth values. Low confidence points are
    * discarded in the vertex shader when they fall below this threshold value.
    */
-  private final float minConfidence = 0.9f;
+  private final float minConfidence = 0.1f;
 
   public Renderer() {}
 

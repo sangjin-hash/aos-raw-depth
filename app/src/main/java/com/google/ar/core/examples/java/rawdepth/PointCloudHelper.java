@@ -39,7 +39,7 @@ import java.util.ArrayList;
  */
 public final class PointCloudHelper {
 
-    private static float minConfidence = 0.9f;
+    private static float minConfidence = 0.1f;
 
     private PointCloudHelper() {}
 
