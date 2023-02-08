@@ -21,11 +21,14 @@ import static com.google.ar.core.examples.java.rawdepth.Renderer.particleData;
 
 import android.media.Image;
 import android.media.Image.Plane;
+import android.opengl.Matrix;
 import android.util.Log;
 
+import com.google.ar.core.Camera;
 import com.google.ar.core.CameraIntrinsics;
 import com.google.ar.core.Coordinates2d;
 import com.google.ar.core.Frame;
+import com.google.ar.core.Pose;
 import com.google.ar.core.exceptions.NotYetAvailableException;
 
 import java.nio.ByteBuffer;
@@ -153,6 +156,46 @@ public final class PointCloudHelper {
                 float _y = depthMeters * (cy - y) / fy;
                 float _z = -depthMeters;
 
+                float[] worldCoordinates = new float[4];
+                worldCoordinates[0] = _x;
+                worldCoordinates[1] = _y;
+                worldCoordinates[2] = _z;
+                worldCoordinates[3] = 1;
+
+                Pose cameraPose = frame.getCamera().getPose();
+                /**
+                 *   Camera Matrix
+                 *   0   4   8   12
+                 *   1   5   9   13
+                 *   2   6  10   14
+                 *   3   7  11   15
+                 *
+                 *   cameraMatrix[0], cameraMatrix[4], cameraMatrix[8]
+                 *   Represent the x-axis of the camera's coordinate system in the world coordinate system.
+                 *
+                 *   cameraMatrix[1], cameraMatrix[5], cameraMatrix[9]
+                 *   Represent the y-axis of the camera's coordinate system in the world coordinate system.
+                 *
+                 *   cameraMatrix[2], cameraMatrix[6], cameraMatrix[10]
+                 *   Represent the z-axis of the camera's coordinate system in the world coordinate system.
+                 *
+                 *   cameraMatrix[3], cameraMatrix[7], cameraMatrix[11]
+                 *   Represent the position of the camera in the world coordinate system.
+                 *
+                 *   cameraMatrix[12], cameraMatrix[13], cameraMatrix[14], cameraMatrix[15]
+                 *   Represent a homogeneous transformation that is applied to the camera coordinate system. Typically, these values are (0, 0, 0, 1).
+                 */
+                float[] cameraMatrix = new float[16];
+                cameraPose.toMatrix(cameraMatrix, 0);
+
+                float[] worldCoordinatesInCameraSpace = new float[4];
+                Matrix.multiplyMV(worldCoordinatesInCameraSpace, 0, cameraMatrix, 0, worldCoordinates, 0);
+
+                float[] worldCoordinatesInWorldSpace = new float[3];
+                worldCoordinatesInWorldSpace[0] = worldCoordinatesInCameraSpace[0] / worldCoordinatesInCameraSpace[3];
+                worldCoordinatesInWorldSpace[1] = worldCoordinatesInCameraSpace[1] / worldCoordinatesInCameraSpace[3];
+                worldCoordinatesInWorldSpace[2] = worldCoordinatesInCameraSpace[2] / worldCoordinatesInCameraSpace[3];
+
                 points.put(_x); points.put(_y); points.put(_z);
                 points.put(confidenceNormalized); // Confidence
 
@@ -176,7 +219,8 @@ public final class PointCloudHelper {
                 int gIntValue = floatToUnsignedInt(rgb[1]);
                 int bIntValue = floatToUnsignedInt(rgb[2]);
 
-                particleData.add(new Particle(_x, _y, _z, rIntValue, gIntValue, bIntValue));
+                //particleData.add(new Particle(_x, _y, _z, rIntValue, gIntValue, bIntValue));
+                particleData.add(new Particle(worldCoordinatesInWorldSpace[0], worldCoordinatesInWorldSpace[1], worldCoordinatesInWorldSpace[2], rIntValue, gIntValue, bIntValue));
             }
         }
 
