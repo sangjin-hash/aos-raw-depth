@@ -17,6 +17,8 @@
 package com.google.ar.core.examples.java.rawdepth;
 
 import android.media.Image;
+import android.util.Log;
+
 import com.google.ar.core.Anchor;
 import com.google.ar.core.Frame;
 import static com.google.ar.core.examples.java.rawdepth.Renderer.frameData;

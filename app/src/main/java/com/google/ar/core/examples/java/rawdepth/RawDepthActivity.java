@@ -115,6 +115,7 @@ public class RawDepthActivity extends AppCompatActivity implements GLSurfaceView
             btn_camera.setImageResource(R.drawable.camera_button);
             _state = CameraState.IDLE;
             saveAsPly();
+            renderer.stopScanning();
             break;
         }
         break;
@@ -129,7 +130,7 @@ public class RawDepthActivity extends AppCompatActivity implements GLSurfaceView
 
   private void saveAsPly(){
     PlyWriter plyWriter = new PlyWriter(this, Renderer.particleData);
-    plyWriter.execute();
+    plyWriter.writePLYFileInBackground();
   }
 
   @Override

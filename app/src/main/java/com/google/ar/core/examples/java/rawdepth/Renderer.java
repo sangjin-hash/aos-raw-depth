@@ -26,6 +26,7 @@ import com.google.ar.core.examples.java.common.io.PlyWriter;
 import com.google.ar.core.examples.java.common.rendering.ShaderUtil;
 import java.io.IOException;
 import java.nio.FloatBuffer;
+import java.sql.Array;
 import java.util.ArrayList;
 
 /** Renders the data from Raw Depth API as 3D points. */
@@ -237,5 +238,11 @@ final class Renderer {
     float deltaY = modifiedCameraPositionWS[1] - originalCameraPositionWS[1];
     float deltaZ = modifiedCameraPositionWS[2] - originalCameraPositionWS[2];
     Matrix.translateM(viewMatrix, 0, deltaX, deltaY, deltaZ);
+  }
+
+  public void stopScanning() {
+    depthFrames = new ArrayList<>();
+    frameData = new ArrayList<>();
+    particleData = new ArrayList<>();
   }
 }
